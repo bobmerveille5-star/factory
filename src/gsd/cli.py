@@ -39,48 +39,90 @@ SKILLS = {
     '9-Delivery': ['doc_sync', 'decision_logger', 'packaging']
 }
 
-PATTERNS = {
+# Import patterns from core
+import sys
+sys.path.insert(0, str(ROOT_DIR / 'lib'))
+from core import PATTERNS as CORE_PATTERNS, PATTERN_ALIASES
+
+# Map patterns to MQL5 function names
+MQL5_FUNCTIONS = {
+    'rsi': ('iRSI', 'PRICE_CLOSE'),
+    'macd': ('iMACD', 'NULL'),
+    'sma': ('iMA', 'PRICE_CLOSE'),
+    'ema': ('iEMA', 'PRICE_CLOSE'),
+    'bollinger': ('iBands', 'PRICE_CLOSE'),
+    'atr': ('iATR', 'NULL'),
+    'stochastic': ('iStochastic', 'NULL'),
+    'adx': ('iADX', 'NULL'),
+    'cci': ('iCCI', 'PRICE_CLOSE'),
+    'vwap': ('iVWAP', 'NULL'),
+    'williams_r': ('iWPR', 'NULL'),
+    'mfi': ('iMFI', 'NULL'),
+    'obv': ('iOBV', 'NULL'),
+    'roc': ('iROC', 'PRICE_CLOSE'),
+    'envelopes': ('iEnvelopes', 'PRICE_CLOSE'),
+    'donchian': ('iDonchian', 'NULL'),
+    'ichimoku': ('iIchimoku', 'NULL'),
+    'stddev': ('iStdDev', 'PRICE_CLOSE'),
+    'trix': ('iTRIX', 'NULL'),
+    'ultimate': ('iUltimateOscillator', 'NULL'),
+}
+
+# Default template when pattern not found
+DEFAULT_PATTERNS = {
     'rsi': {'name': 'RSI', 'params': {'period': 14, 'overbought': 70, 'oversold': 30}},
     'macd': {'name': 'MACD', 'params': {'fast': 12, 'slow': 26, 'signal': 9}},
     'sma': {'name': 'SMA', 'params': {'period': 20}},
     'ema': {'name': 'EMA', 'params': {'period': 20}},
     'bollinger': {'name': 'Bollinger', 'params': {'period': 20, 'std_dev': 2.0}},
     'atr': {'name': 'ATR', 'params': {'period': 14}},
-    'stochastic': {'name': 'Stochastic', 'params': {'k': 14, 'd': 3}}
+    'stochastic': {'name': 'Stochastic', 'params': {'k': 14, 'd': 3}},
 }
 
-PLATFORM_CODE = {
-    'mt5': """//+------------------------------------------------------------------+
-//| {name}.mq5
+# Full patterns dict for CLI (merge default + core)
+PATTERNS = {**DEFAULT_PATTERNS, **{k: {'name': v.name, 'params': v.params} for k, v in CORE_PATTERNS.items()}}
+
+
+def get_pattern_code(pattern: str, name: str) -> dict:
+    """Generate code for a specific pattern."""
+    func_info = MQL5_FUNCTIONS.get(pattern, ('iRSI', 'PRICE_CLOSE'))
+    func_name, price = func_info
+    
+    # Get params
+    params = PATTERNS.get(pattern, PATTERNS['rsi'])['params']
+    
+    return {
+        'mt5': f"""//+------------------------------------------------------------------+
+//| {name}.mq5 - {PATTERNS.get(pattern, PATTERNS['rsi'])['name']}
 //+------------------------------------------------------------------+
 #property indicator_chart_window
 #property indicator_plots 1
 
-input int Period = 14;
+input int Period = {params.get('period', 14)};
 
 int handle;
 double buffer[];
 
 int OnInit() {{
-    handle = iRSI(NULL, PERIOD_CURRENT, Period, PRICE_CLOSE);
+    handle = {func_name}(NULL, PERIOD_CURRENT, {', '.join(str(v) for v in params.values())});
     SetIndexBuffer(0, buffer);
     return INIT_SUCCEEDED;
 }}
 
 int OnCalculate(int rates, int prev, const double& open[], const double& close[]) {{
-    double rsi[];
-    CopyBuffer(handle, 0, 0, rates, rsi);
-    for(int i = 0; i < rates; i++) buffer[i] = rsi[i];
+    double ind[];
+    CopyBuffer(handle, 0, 0, rates, ind);
+    for(int i = 0; i < rates; i++) buffer[i] = ind[i];
     return rates;
 }}
 """,
-    'mt4': """//+------------------------------------------------------------------+
-//| {name}.mq4
+        'mt4': f"""//+------------------------------------------------------------------+
+//| {name}.mq4 - {PATTERNS.get(pattern, PATTERNS['rsi'])['name']}
 //+------------------------------------------------------------------+
 #property indicator_chart_window
 #property indicator_plots 1
 
-extern int Period = 14;
+extern int Period = {params.get('period', 14)};
 double buffer[];
 
 int init() {{
@@ -90,25 +132,96 @@ int init() {{
 
 int start() {{
     int limit = Bars - IndicatorCounted();
-    for(int i = limit - 1; i >= 0; i--) buffer[i] = iRSI(NULL, 0, Period, PRICE_CLOSE, i);
+    for(int i = limit - 1; i >= 0; i--) buffer[i] = {func_name}(NULL, 0, {', '.join(str(v) for v in params.values())}, i);
     return 0;
 }}
 """,
-    'pine': """//@version=5
+        'pine': f"""//@version=5
 indicator("{name}", overlay=false)
-Period = input(14)
-rsi = ta.rsi(close, Period)
-plot(rsi, color=color.blue)
-alertcondition(rsi > 70, "Overbought", "RSI Overbought")
-alertcondition(rsi < 30, "Oversold", "RSI Oversold")
+Period = input({params.get('period', 14)})
+ind = ta.{pattern}(close, Period)
+plot(ind, color=color.blue)
 """,
-    'ninjatrader': """namespace MyIndicator {{
+        'ninjatrader': f"""namespace MyIndicator {{
     public class {name} : Indicator {{
-        protected override void Initialize() {{ Add(RSI(14)); }}
-        protected override void OnBarUpdate() {{ Values[0][0] = RSI[0]; }}
+        protected override void Initialize() {{ }}
+        protected override void OnBarUpdate() {{ }}
     }}
 }}
 """
+    }
+
+
+# Multi-pattern template
+def generate_multi_pattern_code(name: str, patterns: list) -> dict:
+    """Generate code for multiple patterns."""
+    n = len(patterns)
+    
+    return {
+        'mt5': f"""//+------------------------------------------------------------------+
+//| {name}.mq5 - Multi Indicator ({', '.join(patterns)})
+//+------------------------------------------------------------------+
+#property indicator_chart_window
+#property indicator_plots {n}
+
+input int Period = 14;
+
+{chr(10).join([f'int handle{i};' for i in range(n)])}
+{chr(10).join([f'double buffer{i}[];' for i in range(n)])}
+
+int OnInit() {{
+{chr(10).join([f'    handle{i} = iRSI(NULL, PERIOD_CURRENT, Period, PRICE_CLOSE);' for i in range(n)])}
+{chr(10).join([f'    SetIndexBuffer({i}, buffer{i});' for i in range(n)])}
+    return INIT_SUCCEEDED;
+}}
+
+int OnCalculate(int rates, int prev, const double& open[], const double& close[]) {{
+{chr(10).join([f'    double ind{i}[]; CopyBuffer(handle{i}, 0, 0, rates, ind{i});' for i in range(n)])}
+{chr(10).join([f'    buffer{i}[i] = ind{i}[i];' for i in range(n)])}
+    return rates;
+}}
+""",
+        'mt4': f"""//+------------------------------------------------------------------+
+//| {name}.mq4 - Multi Indicator ({', '.join(patterns)})
+//+------------------------------------------------------------------+
+#property indicator_chart_window
+#property indicator_plots {n}
+
+extern int Period = 14;
+{chr(10).join([f'double buffer{i}[];' for i in range(n)])}
+
+int init() {{
+{chr(10).join([f'    SetIndexBuffer({i}, buffer{i});' for i in range(n)])}
+    return 0;
+}}
+
+int start() {{
+    int limit = Bars - IndicatorCounted();
+{chr(10).join([f'    for(int i = limit - 1; i >= 0; i--) buffer{i}[i] = iRSI(NULL, 0, Period, PRICE_CLOSE, i);' for i in range(n)])}
+    return 0;
+}}
+""",
+        'pine': f"""//@version=5
+indicator("{name}", overlay=false)
+Period = input(14)
+{chr(10).join([f'ind{i} = ta.{p}(close, Period)' for i, p in enumerate(patterns)])}
+{chr(10).join([f'plot(ind{i}, title="{p}")' for i, p in enumerate(patterns)])}
+""",
+        'ninjatrader': f"""namespace MyIndicator {{
+    public class {name} : Indicator {{
+        protected override void Initialize() {{ }}
+        protected override void OnBarUpdate() {{ }}
+    }}
+}}
+"""
+    }
+
+# Legacy template (not used anymore)
+PLATFORM_CODE = {
+    'mt5': '',
+    'mt4': '',
+    'pine': '',
+    'ninjatrader': ''
 }
 
 
@@ -190,18 +303,45 @@ def run_skill(skill: str, project: str, desc: str = '') -> int:
 
 
 def generate_code(project: str) -> int:
-    """Generate code for all platforms."""
+    """Generate code for all platforms based on description."""
     proj_dir = PROJECTS_DIR / project
     if not proj_dir.exists():
         log('red', f"Project {project} not found")
         return 1
-
+    
+    # Get description from spec
+    spec_file = proj_dir / '.spec.json'
+    if spec_file.exists():
+        import json
+        spec = json.loads(spec_file.read_text())
+        desc = spec.get('description', '')
+    else:
+        desc = ''
+    
+    # Detect patterns
+    patterns = detect_patterns(desc)
+    
+    if not patterns:
+        # Use default RSI
+        patterns = ['rsi']
+    
+    log('blue', f"Detected patterns: {', '.join(patterns)}")
+    
+    # Generate code
     exts = {'mt5': '.mq5', 'mt4': '.mq4', 'pine': '.pine', 'ninjatrader': '.cs'}
+    
+    if len(patterns) == 1:
+        # Single pattern
+        code = get_pattern_code(patterns[0], project)
+    else:
+        # Multi-pattern
+        code = generate_multi_pattern_code(project, patterns)
+    
     for plat, ext in exts.items():
-        code = PLATFORM_CODE[plat].format(name=project)
         filepath = proj_dir / plat / 'src' / f"{project}{ext}"
-        filepath.write_text(code)
+        filepath.write_text(code[plat])
         log('green', f"  {plat}: {filepath.name}")
+    
     return 0
 
 
