@@ -1,0 +1,58 @@
+# GSD for Trading Indicator Factory
+
+## Description
+Système de production d'indicateurs de trading multi-plateformes (MT5, MT4, Pine Script, NinjaTrader)
+
+## Project Type
+Software Development - Multi-platform Trading Indicators
+
+## Commands
+
+### new-indicator
+Créer un nouvel indicateur depuis un brief utilisateur
+```
+Entrée: Description fonctionnelle de l'indicateur
+Sortie: 20 fichiers de spécification et code source
+```
+
+### validate-phase
+Valider une phase de développement
+```
+Entrée: Numéro de phase (1-5)
+Sortie: Rapport de validation
+```
+
+### generate-platform
+Générer le code pour une plateforme spécifique
+```
+Entrée: Platform (mt5|mt4|pine|ninjatrader)
+Sortie: Fichier source + DOCS_CHECKED + REVIEW_REPORT
+```
+
+### cross-review
+Effectuer une revue croisée des plateformes
+```
+Entrée: Toutes les reviews de plateforme
+Sortie: CROSS_PLATFORM_REVIEW.md
+```
+
+### package
+Créer le package final
+```
+Entrée: Tous les fichiers validés
+Sortie: Archive zip prête à distribuer
+```
+
+## Workflow Phases
+
+1. **Foundation** - Validation API et formalisation des règles
+2. **Pipeline** - Spécification produit et architecture
+3. **Codegen** - Génération code pour chaque plateforme
+4. **QC** - Reviews et validation croisée
+5. **Delivery** - Documentation et packaging
+
+## Key Principles
+- UN SKILL = UN DOSSIER = UN FICHIER .md
+- Validation documentaire obligatoire avant codegen
+- Au moins un problème identifié par review
+- Package auto-suffisant pour installation

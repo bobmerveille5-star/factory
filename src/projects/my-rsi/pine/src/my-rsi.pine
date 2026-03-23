@@ -1,0 +1,15 @@
+//@version=5
+
+indicator("MyIndicator", overlay=false)
+
+int rsiPeriod = 14;
+
+//RSI Calculation
+float rsi_value = ta.rsi(close, rsiPeriod)
+
+//Plot
+plot(rsi_value, title="MyIndicator", color=color.blue)
+
+//Alert conditions
+alertcondition(rsi_value > 70, title="Overbought", message="RSI Overbought")
+alertcondition(rsi_value < 30, title="Oversold", message="RSI Oversold")

@@ -1,0 +1,80 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Run Python tests
+      run: |
+        python3 -m pytest src/tests/ -v --tb=short
+    
+    - name: Test CLI list-skills
+      run: |
+        python3 src/cli/gsd.py list-skills
+    
+    - name: Test project creation
+      run: |
+        python3 src/cli/gsd.py new test-action "Test project"
+        python3 src/cli/gsd.py generate test-action
+    
+    - name: Check code generated
+      run: |
+        ls -la projects/test-action/mt5/src/
+        ls -la projects/test-action/pine/src/
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Check Python syntax
+      run: |
+        python3 -m py_compile src/core/factory.py
+        python3 -m py_compile src/cli/gsd.py
+        python3 -m py_compile src/tests/test_factory.py
+        echo "✓ Syntax OK"
+
+  docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check skills count
+      run: |
+        count=$(find skills -name "*_skill.md" | wc -l)
+        echo "Skills count: $count"
+        if [ $count -lt 40 ]; then
+          echo "ERROR: Less than 40 skills"
+          exit 1
+        fi
+    
+    - name: Check required files
+      run: |
+        for f in README.md WORKFLOW.md AGENTS.md; do
+          if [ ! -f "$f" ]; then
+            echo "ERROR: Missing $f"
+            exit 1
+          fi
+        done
+        echo "✓ Required files present"

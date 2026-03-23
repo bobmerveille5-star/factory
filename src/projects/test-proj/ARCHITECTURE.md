@@ -1,0 +1,3 @@
+# Architecture
+
+Multi-platform indicator

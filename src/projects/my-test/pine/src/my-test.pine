@@ -1,0 +1,7 @@
+//@version=5
+indicator("my-test", overlay=false)
+Period = input(14)
+rsi = ta.rsi(close, Period)
+plot(rsi, color=color.blue)
+alertcondition(rsi > 70, "Overbought", "RSI Overbought")
+alertcondition(rsi < 30, "Oversold", "RSI Oversold")

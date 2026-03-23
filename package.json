@@ -1,0 +1,12 @@
+{
+  "name": "trading-indicator-factory",
+  "version": "1.0.0",
+  "description": "Trading Indicator Factory - Multi-platform indicator generator",
+  "scripts": {
+    "gsd": "python3 src/gsd/cli.py",
+    "test": "python3 tests/test_core.py",
+    "list-skills": "python3 src/gsd/cli.py list-skills"
+  },
+  "keywords": ["trading", "indicators", "mt5", "mt4", "pinescript", "ninjatrader"],
+  "license": "MIT"
+}
